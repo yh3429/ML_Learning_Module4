@@ -4,3 +4,131 @@ date: "2023-02-10"
 output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part I: Implementing a Simple Prediction Pipeline
+
+### Load packages
+
+```{r, message=FALSE}
+library(Amelia)
+library(caret)
+library(tidyverse)
+```
+
+### Load needed data and Perform Data Cleaning
+
+```{r,  message=FALSE}
+set.seed(123)
+health_data <-  read.csv("~/OneDrive - cumc.columbia.edu/2023 Columbia Spring/Machine Learning for Epi/ML_Learning_Module4/class4_p1.csv")
+
+health_data$X<-NULL
+
+str(health_data)
+
+cols_to_keep_as_numeric <- c("gpaq8totmin" , "gpaq11days" , "healthydays", "bmi")
+for (col_name in names(health_data)) {
+  if (col_name %in% cols_to_keep_as_numeric) {
+    health_data[[col_name]] <- as.numeric(health_data[[col_name]])
+  } else {
+    health_data[[col_name]] <- as.factor(health_data[[col_name]])
+  }
+}
+
+health_tidy <- na.omit(health_data)
+
+```
+
+
+### Partition data into training and testing (use a 70/30 split)
+
+```{r}
+set.seed(123)
+indexes <- createDataPartition(health_tidy$healthydays, p = 0.7, list = FALSE)
+
+train_data <- health_tidy[indexes, ]
+test_data <- health_tidy[-indexes, ]
+
+```
+
+### Feature selection by Backward Elimination Method
+
+```{r, results='hide'}
+set.seed(123)
+selectf <- train_data
+chooslinear <- lm(healthydays ~. , data= selectf)
+summary(chooslinear)
+
+selectf$dem3 <- NULL
+selectf$dem8 <- NULL
+selectf$chronic3 <- NULL
+selectf$alcohol1 <- NULL
+selectf$tobacco1 <- NULL
+selectf$bmi <- NULL
+selectf$gpaq8totmin <- NULL
+selectf$gpaq11days <- NULL
+
+chooslinear_2 <- lm(healthydays ~. , data= selectf)
+summary(chooslinear_2)
+
+selectf$povertygroup <- NULL
+selectf$agegroup <- NULL
+selectf$habits5 <- NULL
+selectf$habits7 <- NULL
+
+chooslinear_3 <- lm(healthydays ~. , data= selectf)
+summary(chooslinear_3)
+```
+
+  
+### Construct linear regression models to predict `Healthdays`
+#### Model 1: Include 7 features: 
+##### *`chronic1` ,`chronic4` ,`dem4` ,`habits5`, `habits7`, `agegroup`, `povertygroup`*
+#### Model 2: Include only 3 features: 
+##### *`chronic1` ,`chronic4` ,`dem4`*
+
+```{r regressionmodels}
+
+lm_model_1 <- train(healthydays ~ chronic1 +chronic4 +dem4 +habits5 
+                    +habits7 +agegroup +povertygroup, 
+      data = train_data, 
+      method = "lm")
+summary(lm_model_1)
+
+
+lm_model_2 <- train(healthydays ~ chronic1 +chronic4 +dem4, 
+      data = train_data, 
+      method = "lm")
+summary(lm_model_2)
+
+```
+### Apply both models within the test data
+
+```{r}
+predictions_1 <- predict(lm_model_1, newdata = test_data)
+
+predictions_2 <- predict(lm_model_2, newdata = test_data)
+```
+
+### Determine the preferred prediction model using appropriate evaluation metrics
+
+```{r}
+performance_1 <- postResample(pred = predictions_1, obs = test_data$healthydays)
+print(performance_1)
+
+performance_2 <- postResample(pred = predictions_2, obs = test_data$healthydays)
+print(performance_2)
+```
+Comments: 
+As we known, based on these evaluation metrics, we can determine the preferred prediction model by comparing the values of MSE, MAE, RMSE, and R-squared for both models. A lower MSE, MAE, and RMSE and a higher R-squared indicate a better fitting model.
+After using the Backward elimination method, the model 2 results in a lower R squared and a higher RMSE compared to the model 1, this may suggest that the Backward elimination method may have reduced the model's accuracy by removing important predictors. In this case, it may be best to stick with the model 1 that had a higher R squared and lower error metrics. Although the Backward elimination method has reduced the complexity of the model, making it easier to interpret, but at the cost of lower accuracy.So, I would prefer the model 1 as the prediction model. 
+I would like to learn to make a better and more careful evaluation of the trade-offs between accuracy, complexity, and interpretability through the course process.
+
+### Describle one setting where the implementation of your final model would be useful. 
+The implementation of this final model, "model 1", would be useful in a public health setting to study the relationship between various health factors and self-reported number of healthy days. By considering variables such as hypertension (Chronic 1), asthma (Chronic 4), physical activity (habits5), diet quality (habits7), Hispanic/Latino ethnicity (dem4), age (agegroup), and household income (povertygroup), public health researchers can gain insights into how these factors may influence overall health and well-being. This information can then be used to inform public health interventions and policies aimed at improving health outcomes.
+
+# Part II: Conducting an Unsupervised Analysis 
+
+
