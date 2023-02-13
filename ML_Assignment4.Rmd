@@ -2,6 +2,8 @@
 title: "ML_Assignment4"
 date: "2023-02-10"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -131,4 +133,62 @@ The implementation of this final model, "model 1", would be useful in a public h
 
 # Part II: Conducting an Unsupervised Analysis 
 
+### Load the USArrests dataset and packages
 
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(FactoMineR)
+library(factoextra)
+
+# Load USArrests dataset
+data("USArrests")
+
+# Scale the variables
+USArrests_scaled <- scale(USArrests)
+```
+
+### Conduct a hierarchical clustering analysis
+
+```{r}
+# Calculate the dissimilarity matrix
+dissimilarity_matrix <- dist(USArrests_scaled, method = "euclidean")
+
+# Perform hierarchical clustering using the complete linkage method
+hc.complete <- hclust(dissimilarity_matrix, method = "complete")
+
+# Plot the dendrogram
+plot(hc.complete, main = "Complete Linkage Dendrogram")
+```
+
+### Determine the optimal number of clusters
+
+```{r}
+# Using the elbow method
+wss <- sapply(1:15, function(k){kmeans(USArrests_scaled, k, nstart = 100, iter.max = 100, algorithm = "Lloyd")$tot.withinss})
+plot(1:15, wss, type = "b", xlab = "Number of Clusters", ylab = "Within Sum of Squares")
+abline(v = 4, lty = 2)
+```
+Comment: According to the elbow method, the optimal number of clusters is 4.
+
+### Describe the composition of each cluster
+```{r}
+# Cut the tree into 4 clusters
+clusters_4 <- cutree(hc.complete, k = 4)
+
+# Add the cluster information to the original data
+USArrests_clusters <- data.frame(USArrests, cluster = clusters_4)
+
+# Analyze the composition of each cluster in terms of the original input features
+cluster_mean <- USArrests_clusters %>% group_by(cluster) %>% summarize_all(funs(mean))
+
+```
+Comment:  The composition of each cluster can be seen by grouping the data by the cluster variable and summarizing the mean of each variable. After the calculation of mean, we can know cluster 1 has the highest average on murder. Cluster 2 has the highest averages on both assault, rape, and urbanPop. Cluster 3 only has relatively high average on urbanPop, the other features are relatively low. And cluster 4 has lowest averages on all the features. 
+
+###  Describe one research question 
+If the data was from 2020, I think a potential research question: 
+What the differences in crime rates between states in the United States in 2020 based on the four features in the USArrests dataset (Murder, Assault, Rape, UrbanPop) are? 
+It probably can be addressed using the newly identified clusters. Set the newly identified clusters as the exposure variable. 
+It is crucial to take into account both ethical and scientific issues before employing these clusters to answer a research topic. Considerations like the sample's representativeness and the results' applicability to other US states are important. Additionally, one should think about potential moral ramifications of using crime data and how the outcomes might be distorted or applied to stigmatize particular states, population groups.
